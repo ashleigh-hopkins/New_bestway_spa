@@ -31,16 +31,15 @@ class BestwaySpaSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_translation_placeholders = {"name": f"{title} {name}"}
         self._attr_unique_id = f"{device_id}_{key}"
         self._device_id = device_id
+        self._device_name = title
 
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown")
         }
         
     @property
@@ -49,7 +48,9 @@ class BestwaySpaSwitch(CoordinatorEntity, SwitchEntity):
             # API returns 2 when filter is active
             return self.coordinator.data.get("filter_state") == 2
         elif self._key == "heater_state":
-            # API returns 2,4,5,6 when heater is in various heating phases
+            # Heater state values from device firmware:
+            # 0=off, 2=reduced power (initial or with bubbles), 3=full power
+            # 4=idle (at target), 5=reduced power (post-target), 6=full power (post-target)
             heater_state = self.coordinator.data.get("heater_state")
             return heater_state != 0
         elif self._key == "wave_state":
@@ -70,6 +71,31 @@ class BestwaySpaSwitch(CoordinatorEntity, SwitchEntity):
             return {
                 "bubble_level": mode,
                 "wave_state_value": wave_state
+            }
+        elif self._key == "heater_state":
+            heater_state = self.coordinator.data.get("heater_state", 0)
+
+            # Determine heating status based on state
+            if heater_state == 0:
+                status = "off"
+                actively_heating = False
+            elif heater_state == 4:
+                status = "idle_at_target"
+                actively_heating = False
+            elif heater_state in [2, 5]:
+                status = "reduced_power"
+                actively_heating = True
+            elif heater_state in [3, 6]:
+                status = "full_power"
+                actively_heating = True
+            else:
+                status = f"unknown_{heater_state}"
+                actively_heating = False
+
+            return {
+                "heating_status": status,
+                "actively_heating": actively_heating,
+                "heater_state_value": heater_state
             }
         return {}
 

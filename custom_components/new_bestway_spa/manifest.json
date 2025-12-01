@@ -7,8 +7,11 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/M1R4G376/New_bestway_spa",
-  "iot_class": "cloud_polling",
+  "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/M1R4G376/New_bestway_spa/issues",
-  "requirements": [],
+  "requirements": [
+    "pycryptodome>=3.20.0",
+    "websockets>=15.0"
+  ],
   "version": "1.4.3"
 }

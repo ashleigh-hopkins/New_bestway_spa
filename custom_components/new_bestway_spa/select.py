@@ -30,16 +30,15 @@ class BestwaySpaBubbleSelect(CoordinatorEntity, SelectEntity):
         self._attr_translation_placeholders = {"name": f"{title} Bubbles"}
         self._attr_unique_id = f"{device_id}_bubble_mode"
         self._device_id = device_id
+        self._device_name = title
 
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown")
         }
         
     @property

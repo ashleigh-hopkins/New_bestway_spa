@@ -25,18 +25,17 @@ class BestwaySpaTargetTemperature(CoordinatorEntity, NumberEntity):
         self._attr_translation_placeholders = {"name": f"{title} Target Temperature"}
         self._attr_unique_id = f"{device_id}_temperature_setting"
         self._device_id = device_id
+        self._device_name = title
         self._attr_device_class = "temperature"
-        self._attr_native_step = 0.5
+        self._attr_native_step = 1.0
 
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown")
         }
 
     @property

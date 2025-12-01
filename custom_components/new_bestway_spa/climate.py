@@ -1,8 +1,7 @@
 from homeassistant.const import UnitOfTemperature
 from homeassistant.components.climate import ClimateEntity
-from homeassistant.components.climate.const import ClimateEntityFeature, HVACMode
+from homeassistant.components.climate.const import ClimateEntityFeature, HVACMode, HVACAction
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.loader import async_get_integration
 from .const import DOMAIN
 import logging
 import asyncio
@@ -14,11 +13,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = data["coordinator"]
     api = data["api"]
 
-    # Odczytaj wersję z manifestu i zapisz do hass.data[DOMAIN]
-    if "manifest_version" not in hass.data[DOMAIN]:
-        integration = await async_get_integration(hass, DOMAIN)
-        hass.data[DOMAIN]["manifest_version"] = integration.version
-
     device_id = entry.title.lower().replace(' ', '_')
     async_add_entities([BestwaySpaThermostat(coordinator, api, entry.title, device_id, hass)])
 
@@ -27,6 +21,7 @@ class BestwaySpaThermostat(CoordinatorEntity, ClimateEntity):
     has_entity_name = True
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    _attr_target_temperature_step = 1  # Only whole degrees supported
 
     def __init__(self, coordinator, api, title, device_id, hass):
         super().__init__(coordinator)
@@ -35,17 +30,16 @@ class BestwaySpaThermostat(CoordinatorEntity, ClimateEntity):
         self._attr_translation_placeholders = {"name": f"{title} Thermostat"}
         self._attr_unique_id = f"{device_id}_thermostat"
         self._device_id = device_id
+        self._device_name = title
         self.hass = hass
 
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown")
         }
 
     @property
@@ -72,17 +66,41 @@ class BestwaySpaThermostat(CoordinatorEntity, ClimateEntity):
         return 104 if unit_code == 0 else 40
 
     @property
+    def target_temperature_step(self):
+        """Return the supported step of target temperature."""
+        return 1.0
+
+    @property
     def hvac_mode(self):
         heater_state = self.coordinator.data.get("heater_state")
         power_state = self.coordinator.data.get("power_state")
         _LOGGER.debug(f"Heater state: {heater_state}, Power state: {power_state}")
-        
+
         if heater_state is None or power_state != 1:
             return HVACMode.OFF
-        
+
         is_heating = heater_state != 0
         _LOGGER.debug(f"Heater is actively heating (state {heater_state}): {is_heating}")
         return HVACMode.HEAT if is_heating else HVACMode.OFF
+
+    @property
+    def hvac_action(self):
+        """Return current HVAC action (heating, idle, or off)."""
+        heater_state = self.coordinator.data.get("heater_state")
+        power_state = self.coordinator.data.get("power_state")
+
+        if not heater_state or power_state != 1:
+            return HVACAction.OFF
+
+        # States 2,3,5,6 = actively heating
+        # State 4 = idle at target
+        # State 0 = off
+        if heater_state in [2, 3, 5, 6]:
+            return HVACAction.HEATING
+        elif heater_state == 4:
+            return HVACAction.IDLE
+        else:
+            return HVACAction.OFF
 
     async def async_set_temperature(self, **kwargs):
         temperature = kwargs.get("temperature")

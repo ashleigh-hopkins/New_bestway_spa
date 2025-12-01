@@ -41,6 +41,7 @@ class BestwaySpaSensor(CoordinatorEntity, SensorEntity):
         self._attr_translation_placeholders = {"name": f"{title} {name}"}
         self._attr_unique_id = f"{device_id}_{key}"
         self._device_id = device_id
+        self._device_name = title
 
         # enable long-term statistics for water temperature
         if self._key == "water_temperature":
@@ -51,11 +52,9 @@ class BestwaySpaSensor(CoordinatorEntity, SensorEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown")
         }
 
     @property
@@ -81,6 +80,7 @@ class DaysSinceSensor(CoordinatorEntity, SensorEntity):
         self._attr_translation_placeholders = {"name": f"{entry.title} Days Since {name}"}
         self._key = key
         self._device_id = device_id
+        self._device_name = entry.title
         self._attr_unique_id = f"{device_id}_{key}_days_since"
         self._attr_native_unit_of_measurement = UnitOfTime.DAYS
         self._attr_device_class = "duration"
@@ -90,11 +90,9 @@ class DaysSinceSensor(CoordinatorEntity, SensorEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown")
         }
 
     @property

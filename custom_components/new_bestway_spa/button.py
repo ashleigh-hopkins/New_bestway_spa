@@ -21,6 +21,7 @@ class ResetButton(CoordinatorEntity, ButtonEntity):
         self._attr_translation_placeholders = {"name": f"{name}"}
         self._key = key
         self._device_id = device_id
+        self._device_name = entry.title
 
     @property
     def unique_id(self):
@@ -30,11 +31,9 @@ class ResetButton(CoordinatorEntity, ButtonEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._device_id)},
-            "translation_key": self._attr_translation_key,
-            "translation_placeholders": self._attr_translation_placeholders,
+            "name": self._device_name,
             "manufacturer": "Bestway",
             "model": "Spa",
-            "sw_version": self.hass.data[DOMAIN].get("manifest_version", "unknown"),
         }
 
     async def async_press(self):
