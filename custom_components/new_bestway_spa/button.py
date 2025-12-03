@@ -1,40 +1,77 @@
-from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from __future__ import annotations
+
 from datetime import datetime
-from .const import DOMAIN
 
-async def async_setup_entry(hass, entry, async_add_entities):
+from homeassistant.components.button import ButtonEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN, Icon
+from .entity import BestwayEntity
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    device_id = entry.title.lower().replace(' ', '_')
-    async_add_entities([
-        ResetButton(coordinator, hass, entry, "Reset Filter Date", "filter_last_change", device_id),
-        ResetButton(coordinator, hass, entry, "Reset Chlorine Date", "chlorine_last_add", device_id),
-    ])
+    device_id = entry.title.lower().replace(" ", "_")
+    product_id = entry.data.get("product_id")
+    product_series = entry.data.get("product_series")
 
-class ResetButton(CoordinatorEntity, ButtonEntity):
+    async_add_entities(
+        [
+            ResetButton(
+                coordinator,
+                hass,
+                entry,
+                "Reset Filter Date",
+                "filter_last_change",
+                device_id,
+                product_id,
+                product_series,
+            ),
+            ResetButton(
+                coordinator,
+                hass,
+                entry,
+                "Reset Chlorine Date",
+                "chlorine_last_add",
+                device_id,
+                product_id,
+                product_series,
+            ),
+        ]
+    )
+
+
+class ResetButton(BestwayEntity, ButtonEntity):
     has_entity_name = True
-    def __init__(self, coordinator, hass, entry, name, key, device_id):
-        super().__init__(coordinator)
+
+    def __init__(
+        self,
+        coordinator,
+        hass,
+        entry,
+        name,
+        key,
+        device_id,
+        product_id=None,
+        product_series=None,
+    ):
+        super().__init__(
+            coordinator, device_id, entry.title, product_id, product_series
+        )
         self._hass = hass
         self._entry = entry
         self._attr_translation_key = key
         self._attr_translation_placeholders = {"name": f"{name}"}
         self._key = key
-        self._device_id = device_id
-        self._device_name = entry.title
+        self._attr_icon = Icon.CALENDAR
 
     @property
     def unique_id(self):
         return f"{DOMAIN}_{self._key}_reset_{self._entry.entry_id}"
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": self._device_name,
-            "manufacturer": "Bestway",
-            "model": "Spa",
-        }
 
     async def async_press(self):
         new_date = datetime.now().strftime("%Y-%m-%d")
@@ -45,4 +82,4 @@ class ResetButton(CoordinatorEntity, ButtonEntity):
         self._hass.config_entries.async_update_entry(self._entry, data=data)
 
         self.coordinator.data[self._key] = new_date
-        self.coordinator.async_update_listeners()       
+        self.coordinator.async_update_listeners()

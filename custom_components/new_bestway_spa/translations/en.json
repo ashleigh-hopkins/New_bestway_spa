@@ -63,6 +63,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "connected": { "name": "Spa Connected" },
+      "has_error": { "name": "Spa Errors" },
+      "actively_heating": { "name": "Spa Heating" }
+    },
     "button": {
       "filter_last_change": { "name": "Reset Days Since Filter"},
       "chlorine_last_add":{ "name": "Reset Days Since Chlorine" }
@@ -72,9 +77,9 @@
     },
     "switch": {
       "power_state": { "name": "Spa Power" },
-      "filter_state": { "name": "Filter" },
-      "heater_state": { "name": "Heater" },
-      "hydrojet_state": { "name": "Hydrojet" },
+      "filter_state": { "name": "Spa Filter" },
+      "heater_state": { "name": "Spa Heater" },
+      "hydrojet_state": { "name": "Spa Jets" },
       "wave_state": {
         "name": "Bubbles / Wave",
         "state_attributes": { "bubble_level": {"name": "Bubble Level" }, "wave_state_value": {"name": "Wave State Value" } }
@@ -84,7 +89,14 @@
       "temperature_setting": { "name": "Target Temperature" }
     },
     "select": {
-      "bubble_mode": { "name": "Bubbles" }
+      "bubble_mode": {
+        "name": "Spa Bubbles",
+        "state": {
+          "off": "OFF",
+          "medium": "MEDIUM",
+          "max": "MAX"
+        }
+      }
     },
     "sensor": {
       "filter_last_change": { "name": "Days Since Filter" },

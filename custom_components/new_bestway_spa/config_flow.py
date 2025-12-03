@@ -2,13 +2,13 @@ import logging
 import secrets
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from .spa_api import authenticate, BestwaySpaAPI, generate_visitor_id
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -44,7 +44,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Mode 1: User provided existing visitor_id
                 _LOGGER.info("Using provided visitor_id (existing account)")
                 self._visitor_id = provided_visitor_id
-                client_id = secrets.token_urlsafe(11)[:15].replace('-', '').replace('_', '').lower()
+                client_id = (
+                    secrets.token_urlsafe(11)[:15]
+                    .replace("-", "")
+                    .replace("_", "")
+                    .lower()
+                )
 
                 # No QR code needed - skip binding, go straight to discovery
 
@@ -54,11 +59,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "qr_code_required"
                     return self.async_show_form(
                         step_id="qr_code",
-                        data_schema=vol.Schema({
-                            vol.Optional("visitor_id"): str,
-                            vol.Optional("qr_code"): str
-                        }),
-                        errors=errors
+                        data_schema=vol.Schema(
+                            {
+                                vol.Optional("visitor_id"): str,
+                                vol.Optional("qr_code"): str,
+                            }
+                        ),
+                        errors=errors,
                     )
 
                 # Validate QR format
@@ -66,17 +73,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["qr_code"] = "invalid_format"
                     return self.async_show_form(
                         step_id="qr_code",
-                        data_schema=vol.Schema({
-                            vol.Optional("visitor_id"): str,
-                            vol.Optional("qr_code"): str
-                        }),
-                        errors=errors
+                        data_schema=vol.Schema(
+                            {
+                                vol.Optional("visitor_id"): str,
+                                vol.Optional("qr_code"): str,
+                            }
+                        ),
+                        errors=errors,
                     )
 
                 # Generate new visitor credentials
                 _LOGGER.info("Generating new visitor_id from QR code")
                 self._visitor_id = generate_visitor_id()
-                client_id = secrets.token_urlsafe(11)[:15].replace('-', '').replace('_', '').lower()
+                client_id = (
+                    secrets.token_urlsafe(11)[:15]
+                    .replace("-", "")
+                    .replace("_", "")
+                    .lower()
+                )
 
             # Prepare authentication config
             config = {
@@ -84,7 +98,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "client_id": client_id,
                 "registration_id": "",
                 "push_type": "fcm",
-                "location": "GB"
+                "location": "GB",
             }
 
             # Use Home Assistant's shared session
@@ -95,15 +109,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._token = await authenticate(session, config)
 
                 if not self._token:
-                    _LOGGER.error("Authentication returned no token for visitor_id: %s", self._visitor_id[:8])
+                    _LOGGER.error(
+                        "Authentication returned no token for visitor_id: %s",
+                        self._visitor_id[:8],
+                    )
                     errors["base"] = "auth_failed"
                     return self.async_show_form(
                         step_id="qr_code",
-                        data_schema=vol.Schema({
-                            vol.Optional("visitor_id"): str,
-                            vol.Optional("qr_code"): str
-                        }),
-                        errors=errors
+                        data_schema=vol.Schema(
+                            {
+                                vol.Optional("visitor_id"): str,
+                                vol.Optional("qr_code"): str,
+                            }
+                        ),
+                        errors=errors,
                     )
 
                 # Bind device using QR code (only if QR code provided)
@@ -120,11 +139,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors["qr_code"] = "binding_failed"
                         return self.async_show_form(
                             step_id="qr_code",
-                            data_schema=vol.Schema({
-                                vol.Optional("visitor_id"): str,
-                                vol.Optional("qr_code"): str
-                            }),
-                            errors=errors
+                            data_schema=vol.Schema(
+                                {
+                                    vol.Optional("visitor_id"): str,
+                                    vol.Optional("qr_code"): str,
+                                }
+                            ),
+                            errors=errors,
                         )
 
             except Exception as e:
@@ -136,11 +157,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "auth_failed"
                 return self.async_show_form(
                     step_id="qr_code",
-                    data_schema=vol.Schema({
-                        vol.Optional("visitor_id"): str,
-                        vol.Optional("qr_code"): str
-                    }),
-                    errors=errors
+                    data_schema=vol.Schema(
+                        {vol.Optional("visitor_id"): str, vol.Optional("qr_code"): str}
+                    ),
+                    errors=errors,
                 )
 
             # Success! Proceed to device selection
@@ -151,10 +171,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Description comes from translations/en.json
         return self.async_show_form(
             step_id="qr_code",
-            data_schema=vol.Schema({
-                vol.Optional("visitor_id"): str,
-                vol.Optional("qr_code"): str
-            })
+            data_schema=vol.Schema(
+                {vol.Optional("visitor_id"): str, vol.Optional("qr_code"): str}
+            ),
         )
 
     async def async_step_manual(self, user_input=None):
@@ -166,19 +185,23 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            return self.async_create_entry(title=user_input["device_name"], data=user_input)
+            return self.async_create_entry(
+                title=user_input["device_name"], data=user_input
+            )
 
-        schema = vol.Schema({
-            vol.Required("device_name"): str,
-            vol.Required("visitor_id"): str,
-            vol.Required("registration_id"): str,
-            vol.Optional("device_id"): str,
-            vol.Optional("product_id"): str,
-            vol.Optional("push_type", default="fcm"): vol.In(["fcm", "apns"]),
-            vol.Optional("client_id"): str,
-            vol.Optional("api_host", default="smarthub-eu.bestwaycorp.com"): str,
-            vol.Optional("location", default="GB"): str
-        })
+        schema = vol.Schema(
+            {
+                vol.Required("device_name"): str,
+                vol.Required("visitor_id"): str,
+                vol.Required("registration_id"): str,
+                vol.Optional("device_id"): str,
+                vol.Optional("product_id"): str,
+                vol.Optional("push_type", default="fcm"): vol.In(["fcm", "apns"]),
+                vol.Optional("client_id"): str,
+                vol.Optional("api_host", default="smarthub-eu.bestwaycorp.com"): str,
+                vol.Optional("location", default="GB"): str,
+            }
+        )
 
         return self.async_show_form(step_id="manual", data_schema=schema, errors=errors)
 
@@ -192,7 +215,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         This completes the zero-configuration setup experience.
         """
-        errors = {}
 
         # Ensure we have credentials from QR flow
         if not self._visitor_id or not self._token:
@@ -207,7 +229,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "device_name": "placeholder",
             "registration_id": "",
             "push_type": "fcm",
-            "location": "GB"
+            "location": "GB",
         }
 
         # Handle device selection
@@ -224,7 +246,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return self.async_abort(reason="device_not_found")
 
                 # Extract device name (API may use device_name, device_alias, or nick_name)
-                device_name = device.get("device_name") or device.get("device_alias") or device.get("nick_name") or "Bestway Spa"
+                device_name = (
+                    device.get("device_name")
+                    or device.get("device_alias")
+                    or device.get("nick_name")
+                    or "Bestway Spa"
+                )
 
                 # Create config entry with all auto-populated fields
                 return self.async_create_entry(
@@ -236,17 +263,22 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "registration_id": "",  # Not needed with visitor auth
                         "client_id": "",  # Not needed with visitor auth
                         "push_type": "fcm",
-
                         # Device details from discovery (auto-populated!)
                         "device_id": device["device_id"],
-                        "product_id": device.get("product_id", "T53NN8"),  # Fallback to common type
-                        "service_region": device.get("service_region", "eu-central-1"),  # Fallback to EU
+                        "product_id": device.get(
+                            "product_id", "T53NN8"
+                        ),  # Fallback to common type
+                        "product_series": device.get(
+                            "product_series", ""
+                        ).strip(),  # e.g., "AIRJET"
+                        "service_region": device.get(
+                            "service_region", "eu-central-1"
+                        ),  # Fallback to EU
                         "device_name": device_name,
-
                         # Optional fields
                         "api_host": "smarthub-eu.bestwaycorp.com",
-                        "location": "GB"
-                    }
+                        "location": "GB",
+                    },
                 )
 
             except Exception as e:
@@ -267,7 +299,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_options = {}
             for device in devices:
                 device_id = device["device_id"]
-                device_name = device.get("device_name") or device.get("device_alias") or device.get("nick_name") or "Unknown Device"
+                device_name = (
+                    device.get("device_name")
+                    or device.get("device_alias")
+                    or device.get("nick_name")
+                    or "Unknown Device"
+                )
                 product_id = device.get("product_id", "Unknown")
                 is_online = device.get("is_online", False)
 
@@ -282,9 +319,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Show device picker
             return self.async_show_form(
                 step_id="select_device",
-                data_schema=vol.Schema({
-                    vol.Required("device_id"): vol.In(device_options)
-                })
+                data_schema=vol.Schema(
+                    {vol.Required("device_id"): vol.In(device_options)}
+                ),
             )
 
         except Exception as e:

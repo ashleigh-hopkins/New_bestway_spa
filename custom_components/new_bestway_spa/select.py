@@ -1,46 +1,57 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from .const import DOMAIN
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN, Icon
+from .entity import BestwayEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-OPTIONS = ["Off", "L1", "L2"]
+OPTIONS = ["OFF", "MEDIUM", "MAX"]
 
-async def async_setup_entry(hass, entry, async_add_entities):
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the Bestway Spa bubble mode select entity."""
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
     api = data["api"]
-    device_id = entry.title.lower().replace(' ', '_')
-    async_add_entities([BestwaySpaBubbleSelect(coordinator, api, entry.title, device_id)])
+    device_id = entry.title.lower().replace(" ", "_")
+    product_id = entry.data.get("product_id")
+    product_series = entry.data.get("product_series")
+
+    async_add_entities(
+        [
+            BestwaySpaBubbleSelect(
+                coordinator, api, entry.title, device_id, product_id, product_series
+            )
+        ]
+    )
 
 
-class BestwaySpaBubbleSelect(CoordinatorEntity, SelectEntity):
+class BestwaySpaBubbleSelect(BestwayEntity, SelectEntity):
     """Select entity to control the bubble mode of the Bestway Spa."""
+
     has_entity_name = True
     _attr_options = OPTIONS
 
-    def __init__(self, coordinator, api, title, device_id):
-        super().__init__(coordinator)
+    def __init__(
+        self, coordinator, api, title, device_id, product_id=None, product_series=None
+    ):
+        super().__init__(coordinator, device_id, title, product_id, product_series)
         self._api = api
         self._attr_translation_key = "bubble_mode"
-        self._attr_translation_placeholders = {"name": f"{title} Bubbles"}
+        self._attr_translation_placeholders = {"name": f"{title} Spa bubbles"}
         self._attr_unique_id = f"{device_id}_bubble_mode"
-        self._device_id = device_id
-        self._device_name = title
+        self._attr_icon = Icon.BUBBLES
 
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": self._device_name,
-            "manufacturer": "Bestway",
-            "model": "Spa",
-        }
-        
     @property
     def current_option(self):
         """Return the current bubble mode based on wave_state."""
@@ -48,25 +59,25 @@ class BestwaySpaBubbleSelect(CoordinatorEntity, SelectEntity):
         _LOGGER.debug(f"Current wave_state: {wave_state}")
 
         if wave_state == 0:
-            return "Off"
+            return "OFF"
         elif wave_state == 100:
-            return "L1"
+            return "MEDIUM"
         else:
-            return "L2"
+            return "MAX"
 
     async def async_select_option(self, option: str):
         """Handle selection from user."""
         _LOGGER.debug(f"User selected bubble mode: {option}")
 
-        if option == "Off":
+        if option == "OFF":
             await self._api.set_state("wave_state", 0)
 
-        elif option == "L1":
+        elif option == "MEDIUM":
             await self._api.set_state("wave_state", 0)
             await asyncio.sleep(1.5)
             await self._api.set_state("wave_state", 1)
 
-        elif option == "L2":
+        elif option == "MAX":
             await self._api.set_state("wave_state", 0)
             await asyncio.sleep(1.5)
             await self._api.set_state("wave_state", 1)
@@ -74,5 +85,6 @@ class BestwaySpaBubbleSelect(CoordinatorEntity, SelectEntity):
             await self._api.set_state("wave_state", 1)
 
         await self.coordinator.async_request_refresh()
+
 
 __all__ = ["async_setup_entry"]

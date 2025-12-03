@@ -1,42 +1,53 @@
-from homeassistant.const import UnitOfTemperature
-from homeassistant.components.number import NumberEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from .const import DOMAIN
+from __future__ import annotations
+
 import asyncio
 
-C_TEMPS = {"min":20, "max":40}
-F_TEMPS = {"min":68, "max":104}
+from homeassistant.components.number import NumberEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-async def async_setup_entry(hass, entry, async_add_entities):
+from .const import DOMAIN, Icon
+from .entity import BestwayEntity
+
+C_TEMPS = {"min": 20, "max": 40}
+F_TEMPS = {"min": 68, "max": 104}
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
     api = data["api"]
-    device_id = entry.title.lower().replace(' ', '_') 
-    async_add_entities([
-        BestwaySpaTargetTemperature(coordinator, api, entry.title, device_id)
-    ])
+    device_id = entry.title.lower().replace(" ", "_")
+    product_id = entry.data.get("product_id")
+    product_series = entry.data.get("product_series")
 
-class BestwaySpaTargetTemperature(CoordinatorEntity, NumberEntity):
+    async_add_entities(
+        [
+            BestwaySpaTargetTemperature(
+                coordinator, api, entry.title, device_id, product_id, product_series
+            )
+        ]
+    )
+
+
+class BestwaySpaTargetTemperature(BestwayEntity, NumberEntity):
     has_entity_name = True
-    def __init__(self, coordinator, api, title, device_id):
-        super().__init__(coordinator)
+
+    def __init__(
+        self, coordinator, api, title, device_id, product_id=None, product_series=None
+    ):
+        super().__init__(coordinator, device_id, title, product_id, product_series)
         self._api = api
         self._attr_translation_key = "temperature_setting"
         self._attr_translation_placeholders = {"name": f"{title} Target Temperature"}
         self._attr_unique_id = f"{device_id}_temperature_setting"
-        self._device_id = device_id
-        self._device_name = title
         self._attr_device_class = "temperature"
         self._attr_native_step = 1.0
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": self._device_name,
-            "manufacturer": "Bestway",
-            "model": "Spa",
-        }
+        self._attr_icon = Icon.THERMOMETER
 
     @property
     def native_value(self):
@@ -45,13 +56,17 @@ class BestwaySpaTargetTemperature(CoordinatorEntity, NumberEntity):
     @property
     def native_unit_of_measurement(self):
         unit_code = self.coordinator.data.get("temperature_unit", 1)
-        return UnitOfTemperature.FAHRENHEIT if unit_code == 0 else UnitOfTemperature.CELSIUS
+        return (
+            UnitOfTemperature.FAHRENHEIT
+            if unit_code == 0
+            else UnitOfTemperature.CELSIUS
+        )
 
     @property
     def native_min_value(self):
         unit_code = self.coordinator.data.get("temperature_unit", 1)
         return F_TEMPS["min"] if unit_code == 0 else C_TEMPS["min"]
-    
+
     @property
     def native_max_value(self):
         unit_code = self.coordinator.data.get("temperature_unit", 1)

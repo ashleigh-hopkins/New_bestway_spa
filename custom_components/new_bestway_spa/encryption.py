@@ -19,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 try:
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import pad, unpad
+
     HAS_CRYPTO = True
 except ImportError:
     HAS_CRYPTO = False
@@ -66,12 +67,16 @@ def encrypt_command_payload(sign: str, app_secret: str, plaintext: str) -> str:
 
     # Fixed IV from decompiled APK (com/rongwei/library/utils/AESEncrypt.java)
     # This IV is hardcoded in the official app and never changes
-    iv = bytes([56, 110, 58, 168, 76, 255, 94, 159, 237, 215, 171, 181, 150, 40, 74, 166])
+    iv = bytes(
+        [56, 110, 58, 168, 76, 255, 94, 159, 237, 215, 171, 181, 150, 40, 74, 166]
+    )
 
     # Key derivation: SHA-256(f"{sign},{app_secret}")[:32] as UTF-8 bytes
     # Example: "C4C0...83C,4ECv...XcEFjhWfTmLT" → SHA-256 → first 32 hex chars → UTF-8 encode
     key_material = f"{sign},{app_secret}".encode("utf-8")
-    key_hex = hashlib.sha256(key_material).hexdigest()[:32]  # First 16 bytes as hex string
+    key_hex = hashlib.sha256(key_material).hexdigest()[
+        :32
+    ]  # First 16 bytes as hex string
     key = key_hex.encode("utf-8")  # 32 bytes (UTF-8 encoding of hex string)
 
     # Encrypt with AES-256-CBC

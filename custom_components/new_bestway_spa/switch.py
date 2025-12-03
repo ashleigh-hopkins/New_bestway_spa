@@ -1,47 +1,75 @@
-from homeassistant.components.switch import SwitchEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from .const import DOMAIN
+from __future__ import annotations
+
 import asyncio
 
+from homeassistant.components.switch import SwitchEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN, Icon
+from .entity import BestwayEntity
+
 SWITCH_TYPES = [
-    ("power_state", "Spa Power"),
-    ("filter_state", "Filter"),
-    ("heater_state", "Heater"),
-    ("hydrojet_state", "Hydrojet"),
-    ("wave_state", "Bubbles / Wave")
+    ("power_state", "Spa Power", Icon.POWER),
+    ("filter_state", "Filter", Icon.FILTER),
+    ("heater_state", "Heater", Icon.HEATER),
+    ("hydrojet_state", "Hydrojet", Icon.HYDROJET),
+    # wave_state removed - use select.bubble_mode instead for L1/L2/Off control
 ]
 
-async def async_setup_entry(hass, entry, async_add_entities):
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
     api = data["api"]
-    device_id = entry.title.lower().replace(' ', '_')
-    async_add_entities([
-        BestwaySpaSwitch(coordinator, api, key, name, entry.title, device_id)
-        for key, name in SWITCH_TYPES
-    ])
+    device_id = entry.title.lower().replace(" ", "_")
+    product_id = entry.data.get("product_id")
+    product_series = entry.data.get("product_series")
 
-class BestwaySpaSwitch(CoordinatorEntity, SwitchEntity):
+    async_add_entities(
+        [
+            BestwaySpaSwitch(
+                coordinator,
+                api,
+                key,
+                name,
+                icon,
+                entry.title,
+                device_id,
+                product_id,
+                product_series,
+            )
+            for key, name, icon in SWITCH_TYPES
+        ]
+    )
+
+
+class BestwaySpaSwitch(BestwayEntity, SwitchEntity):
     has_entity_name = True
-    def __init__(self, coordinator, api, key, name, title, device_id):
-        super().__init__(coordinator)
+
+    def __init__(
+        self,
+        coordinator,
+        api,
+        key,
+        name,
+        icon,
+        title,
+        device_id,
+        product_id=None,
+        product_series=None,
+    ):
+        super().__init__(coordinator, device_id, title, product_id, product_series)
         self._api = api
         self._key = key
         self._attr_translation_key = key
         self._attr_translation_placeholders = {"name": f"{title} {name}"}
         self._attr_unique_id = f"{device_id}_{key}"
-        self._device_id = device_id
-        self._device_name = title
+        self._attr_icon = icon
 
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": self._device_name,
-            "manufacturer": "Bestway",
-            "model": "Spa",
-        }
-        
     @property
     def is_on(self):
         if self._key == "filter_state":
@@ -53,26 +81,12 @@ class BestwaySpaSwitch(CoordinatorEntity, SwitchEntity):
             # 4=idle (at target), 5=reduced power (post-target), 6=full power (post-target)
             heater_state = self.coordinator.data.get("heater_state")
             return heater_state != 0
-        elif self._key == "wave_state":
-            return self.coordinator.data.get("wave_state", 0) != 0
         else:
             return self.coordinator.data.get(self._key) == 1
-            
+
     @property
     def extra_state_attributes(self):
-        if self._key == "wave_state":
-            wave_state = self.coordinator.data.get("wave_state", 0)
-            if wave_state == 0:
-                mode = "off"
-            elif wave_state == 100:
-                mode = "L1"
-            else:
-                mode = "L2"
-            return {
-                "bubble_level": mode,
-                "wave_state_value": wave_state
-            }
-        elif self._key == "heater_state":
+        if self._key == "heater_state":
             heater_state = self.coordinator.data.get("heater_state", 0)
 
             # Determine heating status based on state
@@ -95,10 +109,9 @@ class BestwaySpaSwitch(CoordinatorEntity, SwitchEntity):
             return {
                 "heating_status": status,
                 "actively_heating": actively_heating,
-                "heater_state_value": heater_state
+                "heater_state_value": heater_state,
             }
         return {}
-
 
     async def async_turn_on(self):
         await self._api.set_state(self._key, 1)

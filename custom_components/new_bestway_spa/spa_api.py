@@ -35,25 +35,33 @@ async def authenticate(session, config):
     APPSECRET = "4ECvVs13enL5AiYSmscNjvlaisklQDz7vWPCCWXcEFjhWfTmLT"
 
     def generate_auth():
-        nonce = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
+        nonce = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
         ts = str(int(time.time()))
-        sign = hashlib.md5((APPID + APPSECRET + nonce + ts).encode("utf-8")).hexdigest().upper()
+        sign = (
+            hashlib.md5((APPID + APPSECRET + nonce + ts).encode("utf-8"))
+            .hexdigest()
+            .upper()
+        )
         return nonce, ts, sign
 
     push_type = config.get("push_type", "fcm")
 
     payload = {
         "app_id": APPID,
+        "brand": "",  # CRITICAL: Required by API (discovered via APK decompilation)
         "lan_code": "en",
         "location": config.get("location", "GB"),
+        "marketing_notification": 0,  # CRITICAL: Required by API (discovered via APK decompilation)
         "push_type": push_type,
         "timezone": "GMT",
         "visitor_id": config["visitor_id"],
-        "registration_id": config["registration_id"]
+        "registration_id": config["registration_id"],
     }
 
     if push_type == "fcm":
         payload["client_id"] = config["client_id"]
+    elif push_type == "android":
+        payload["client_id"] = config.get("client_id", "")
 
     nonce, ts, sign = generate_auth()
     headers = {
@@ -67,16 +75,13 @@ async def authenticate(session, config):
         "Host": api_host,
         "Connection": "Keep-Alive",
         "User-Agent": "okhttp/4.9.0",
-        "Content-Type": "application/json; charset=UTF-8"
+        "Content-Type": "application/json; charset=UTF-8",
     }
 
     _LOGGER.debug("Authenticating with payload: %s", payload)
 
     async with session.post(
-        f"{BASE_URL}/api/enduser/visitor",
-        headers=headers,
-        json=payload,
-        ssl=False
+        f"{BASE_URL}/api/enduser/visitor", headers=headers, json=payload, ssl=False
     ) as resp:
         data = await resp.json()
         _LOGGER.debug("Auth response: %s", data)
@@ -99,9 +104,13 @@ class BestwaySpaAPI:
         self.push_type = config.get("push_type", "fcm")
 
     def _generate_auth_headers(self):
-        nonce = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
+        nonce = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
         ts = str(int(time.time()))
-        sign = hashlib.md5((self.APPID + self.APPSECRET + nonce + ts).encode("utf-8")).hexdigest().upper()
+        sign = (
+            hashlib.md5((self.APPID + self.APPSECRET + nonce + ts).encode("utf-8"))
+            .hexdigest()
+            .upper()
+        )
         return {
             "pushtype": self.push_type,
             "appid": self.APPID,
@@ -113,14 +122,11 @@ class BestwaySpaAPI:
             "Host": self.api_host,
             "Connection": "Keep-Alive",
             "User-Agent": "okhttp/4.9.0",
-            "Content-Type": "application/json; charset=UTF-8"
+            "Content-Type": "application/json; charset=UTF-8",
         }
 
     async def get_status(self):
-        payload = {
-            "device_id": self.device_id,
-            "product_id": self.product_id
-        }
+        payload = {"device_id": self.device_id, "product_id": self.product_id}
 
         _LOGGER.debug("Sending get_status payload: %s", payload)
 
@@ -128,7 +134,7 @@ class BestwaySpaAPI:
             f"{self.BASE_URL}/api/device/thing_shadow/",
             headers=self._generate_auth_headers(),
             json=payload,
-            ssl=False
+            ssl=False,
         ) as resp:
             data = await resp.json()
             _LOGGER.debug("Full API response: %s", data)
@@ -170,7 +176,7 @@ class BestwaySpaAPI:
                 "warning": 0 if warning == "" else warning,
                 "error_code": 0 if error_code == "" else error_code,
                 "hydrojet_state": device_state.get("hydrojet_state"),
-                "is_online": device_state.get("is_online")
+                "is_online": device_state.get("is_online"),
             }
 
             _LOGGER.debug("Normalized data: %s", mapped)
@@ -201,22 +207,22 @@ class BestwaySpaAPI:
 
                 # Build AWS IoT Device Shadow format
                 # CRITICAL: "desired" field must be a JSON STRING, not an object
-                desired_json_string = json.dumps({
-                    "state": {
-                        "desired": {key: value}
-                    }
-                }, separators=(",", ":"))
+                desired_json_string = json.dumps(
+                    {"state": {"desired": {key: value}}}, separators=(",", ":")
+                )
 
                 # Build plaintext payload for encryption
                 command_payload = {
                     "device_id": self.device_id,
                     "product_id": self.product_id,
-                    "desired": desired_json_string  # JSON string!
+                    "desired": desired_json_string,  # JSON string!
                 }
 
                 # Serialize and encrypt
                 plaintext = json.dumps(command_payload, separators=(",", ":"))
-                encrypted_data = encrypt_command_payload(sign, self.APPSECRET, plaintext)
+                encrypted_data = encrypt_command_payload(
+                    sign, self.APPSECRET, plaintext
+                )
 
                 body = {"encrypted_data": encrypted_data}
 
@@ -227,7 +233,7 @@ class BestwaySpaAPI:
                     f"{self.BASE_URL}/api/v2/device/command",
                     headers=headers,
                     json=body,
-                    ssl=False
+                    ssl=False,
                 ) as resp:
                     response = await resp.json()
 
@@ -235,7 +241,10 @@ class BestwaySpaAPI:
                         _LOGGER.info("✓ v2 API success: %s=%s", key, value)
                         return response
                     else:
-                        _LOGGER.warning("v2 API returned error code %s, falling back to v1", response.get("code"))
+                        _LOGGER.warning(
+                            "v2 API returned error code %s, falling back to v1",
+                            response.get("code"),
+                        )
 
             except Exception as e:
                 _LOGGER.warning("v2 API error (%s), falling back to v1", str(e))
@@ -246,13 +255,7 @@ class BestwaySpaAPI:
         payload = {
             "device_id": self.device_id,
             "product_id": self.product_id,
-            "desired": {
-                "state": {
-                    "desired": {
-                        key: value
-                    }
-                }
-            }
+            "desired": {"state": {"desired": {key: value}}},
         }
 
         _LOGGER.debug("Sending v1 set_state payload: %s", payload)
@@ -261,7 +264,7 @@ class BestwaySpaAPI:
             f"{self.BASE_URL}/api/device/command/",
             headers=self._generate_auth_headers(),
             json=payload,
-            ssl=False
+            ssl=False,
         ) as resp:
             response = await resp.json()
             _LOGGER.info("✓ v1 API success: %s=%s", key, value)
@@ -293,7 +296,7 @@ class BestwaySpaAPI:
         async with self.session.get(
             f"{self.BASE_URL}/api/enduser/homes",
             headers=self._generate_auth_headers(),
-            ssl=False
+            ssl=False,
         ) as resp:
             homes_result = await resp.json()
 
@@ -317,13 +320,16 @@ class BestwaySpaAPI:
             async with self.session.get(
                 f"{self.BASE_URL}/api/enduser/home/rooms?home_id={home_id}",
                 headers=self._generate_auth_headers(),
-                ssl=False
+                ssl=False,
             ) as resp:
                 rooms_result = await resp.json()
 
             if rooms_result.get("code") != 0:
-                _LOGGER.warning("Failed to get rooms for home %s: %s",
-                              home_id, rooms_result.get("message"))
+                _LOGGER.warning(
+                    "Failed to get rooms for home %s: %s",
+                    home_id,
+                    rooms_result.get("message"),
+                )
                 continue
 
             rooms = rooms_result.get("data", {}).get("list", [])
@@ -338,13 +344,16 @@ class BestwaySpaAPI:
                 async with self.session.get(
                     f"{self.BASE_URL}/api/enduser/home/room/devices?room_id={room_id}",
                     headers=self._generate_auth_headers(),
-                    ssl=False
+                    ssl=False,
                 ) as resp:
                     devices_result = await resp.json()
 
                 if devices_result.get("code") != 0:
-                    _LOGGER.warning("Failed to get devices for room %s: %s",
-                                  room_id, devices_result.get("message"))
+                    _LOGGER.warning(
+                        "Failed to get devices for room %s: %s",
+                        room_id,
+                        devices_result.get("message"),
+                    )
                     continue
 
                 devices = devices_result.get("data", {}).get("list", [])
@@ -352,7 +361,14 @@ class BestwaySpaAPI:
 
                 # Debug: Log device fields to identify naming field
                 for device in devices:
-                    _LOGGER.debug("Device fields: %s", {k: v for k, v in device.items() if 'name' in k.lower() or 'alias' in k.lower()})
+                    _LOGGER.debug(
+                        "Device fields: %s",
+                        {
+                            k: v
+                            for k, v in device.items()
+                            if "name" in k.lower() or "alias" in k.lower()
+                        },
+                    )
 
                 all_devices.extend(devices)
 
@@ -374,7 +390,12 @@ class BestwaySpaAPI:
 
         for device in devices:
             if device.get("device_id") == device_id:
-                _LOGGER.debug("Found device: %s", device.get("device_name") or device.get("device_alias") or device.get("nick_name"))
+                _LOGGER.debug(
+                    "Found device: %s",
+                    device.get("device_name")
+                    or device.get("device_alias")
+                    or device.get("nick_name"),
+                )
                 return device
 
         _LOGGER.warning("Device not found: %s", device_id)
@@ -417,7 +438,10 @@ class BestwaySpaAPI:
             return None
 
         if not qr_code.startswith("RW_Share_"):
-            _LOGGER.error("Invalid QR code format. Expected 'RW_Share_<vercode>', got: %s", qr_code[:20])
+            _LOGGER.error(
+                "Invalid QR code format. Expected 'RW_Share_<vercode>', got: %s",
+                qr_code[:20],
+            )
             return None
 
         vercode_part = qr_code[9:]  # Strip "RW_Share_" prefix
@@ -428,9 +452,10 @@ class BestwaySpaAPI:
         _LOGGER.info("Binding device with QR code: %s...", qr_code[:25])
 
         # Prepare request
+        # CRITICAL: grant_device API only accepts "android", not "fcm"
         payload = {
             "vercode": qr_code,  # Send full QR code including prefix
-            "push_type": self.push_type
+            "push_type": "android",  # Must be "android" for grant_device (API requirement)
         }
 
         _LOGGER.debug("Grant device payload: %s", payload)
@@ -441,7 +466,7 @@ class BestwaySpaAPI:
                 f"{self.BASE_URL}/api/enduser/grant_device/",
                 headers=self._generate_auth_headers(),
                 json=payload,
-                ssl=False
+                ssl=False,
             ) as resp:
                 result = await resp.json()
 
@@ -455,11 +480,17 @@ class BestwaySpaAPI:
                 device_info = result.get("data", {})
                 device_name = device_info.get("name", "Unknown")
                 device_id = device_info.get("device_id", "Unknown")
-                _LOGGER.info("✓ Device bound successfully: %s (id=%s)", device_name, device_id[:20])
+                _LOGGER.info(
+                    "✓ Device bound successfully: %s (id=%s)",
+                    device_name,
+                    device_id[:20],
+                )
                 return device_info
 
             elif code == 4001:
-                _LOGGER.error("QR code invalid or expired. Generate fresh QR code from spa display.")
+                _LOGGER.error(
+                    "QR code invalid or expired. Generate fresh QR code from spa display."
+                )
                 return None
 
             elif code == 4002:
@@ -467,7 +498,11 @@ class BestwaySpaAPI:
                 return None
 
             else:
-                _LOGGER.error("Grant device failed: code=%s, message=%s", code, result.get("message"))
+                _LOGGER.error(
+                    "Grant device failed: code=%s, message=%s",
+                    code,
+                    result.get("message"),
+                )
                 return None
 
         except Exception as e:

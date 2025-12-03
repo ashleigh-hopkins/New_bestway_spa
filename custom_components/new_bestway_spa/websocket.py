@@ -20,7 +20,7 @@ import time
 from typing import Callable, Optional
 
 import websockets
-from websockets.client import WebSocketClientProtocol
+from websockets.client import ClientProtocol
 
 from homeassistant.util import ssl as ssl_util
 
@@ -44,7 +44,7 @@ class BestwayWebSocket:
     ENDPOINTS = {
         "eu-central-1": "wss://7lv67j5lbh.execute-api.eu-central-1.amazonaws.com/prod",
         "us-west-1": "wss://9i661wi8f9.execute-api.us-west-1.amazonaws.com/prod",
-        "cn-north-1": "wss://fu9gsv4dxh.execute-api.cn-north-1.amazonaws.com.cn/prod"
+        "cn-north-1": "wss://fu9gsv4dxh.execute-api.cn-north-1.amazonaws.com.cn/prod",
     }
 
     # Heartbeat configuration (from WsManager.java lines 118-142)
@@ -61,7 +61,7 @@ class BestwayWebSocket:
         service_region: str,
         token: str,
         callback: Callable[[dict], None],
-        token_refresh_callback: Optional[Callable[[], str]] = None
+        token_refresh_callback: Optional[Callable[[], str]] = None,
     ):
         """Initialize WebSocket client.
 
@@ -78,7 +78,7 @@ class BestwayWebSocket:
         self.callback = callback
         self.token_refresh_callback = token_refresh_callback
 
-        self.websocket: Optional[WebSocketClientProtocol] = None
+        self.websocket: Optional[ClientProtocol] = None
         self._running = False
         self._seq_id = int(time.time() * 1000)
         self._heartbeat_failures = 0
@@ -111,8 +111,11 @@ class BestwayWebSocket:
         from WsManager.java line 83: addHeader("Authorization", token)).
         """
         try:
-            _LOGGER.info("Connecting WebSocket for device %s (region: %s)",
-                        self.device_id[:20], self.service_region)
+            _LOGGER.info(
+                "Connecting WebSocket for device %s (region: %s)",
+                self.device_id[:20],
+                self.service_region,
+            )
 
             # Use Home Assistant's pre-cached SSL context (avoids blocking warnings)
             ssl_context = ssl_util.get_default_context()
@@ -123,7 +126,7 @@ class BestwayWebSocket:
                 self.ws_url,
                 additional_headers={"Authorization": self.token},
                 ssl=ssl_context,
-                ping_interval=None  # Manual heartbeat
+                ping_interval=None,  # Manual heartbeat
             )
 
             self._running = True
@@ -142,12 +145,16 @@ class BestwayWebSocket:
 
             # If HTTP 400 and we have token refresh callback, try refreshing token
             if "HTTP 400" in error_msg and self.token_refresh_callback:
-                _LOGGER.info("HTTP 400 detected - attempting token refresh and immediate retry")
+                _LOGGER.info(
+                    "HTTP 400 detected - attempting token refresh and immediate retry"
+                )
                 try:
                     new_token = await self.token_refresh_callback()
                     if new_token:
                         self.token = new_token
-                        _LOGGER.info("Token refreshed successfully, retrying connection immediately")
+                        _LOGGER.info(
+                            "Token refreshed successfully, retrying connection immediately"
+                        )
                         # Reset reconnect count since we got a fresh token
                         self._reconnect_count = 0
                         # Retry connection immediately instead of scheduling with delay
@@ -178,8 +185,10 @@ class BestwayWebSocket:
                 self._heartbeat_failures += 1
 
                 if self._heartbeat_failures >= self.MAX_HEARTBEAT_FAILURES:
-                    _LOGGER.error("Max heartbeat failures (%d) reached, reconnecting",
-                                self.MAX_HEARTBEAT_FAILURES)
+                    _LOGGER.error(
+                        "Max heartbeat failures (%d) reached, reconnecting",
+                        self.MAX_HEARTBEAT_FAILURES,
+                    )
                     await self._schedule_reconnect()
                     break
 
@@ -198,7 +207,7 @@ class BestwayWebSocket:
             "req_event": "heartbeat_req",
             "seq_id": self._next_seq_id(),
             "req_count": 1,
-            "req": None
+            "req": None,
         }
 
         await self.websocket.send(json.dumps(message))
@@ -252,11 +261,14 @@ class BestwayWebSocket:
             if "product_id" in data:
                 state["product_id"] = data["product_id"]
 
-            _LOGGER.debug("Received state update for device %s: %d fields",
-                        self.device_id[:20], len(state))
+            _LOGGER.debug(
+                "Received state update for device %s: %d fields",
+                self.device_id[:20],
+                len(state),
+            )
 
             # Call update callback
-            if self.callback:
+            if self.callback is not None:
                 try:
                     self.callback(state)
                 except Exception as err:

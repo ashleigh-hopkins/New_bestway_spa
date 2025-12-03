@@ -26,6 +26,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "connected": { "name": "Spa Connecté" },
+      "has_error": { "name": "Erreurs du Spa" },
+      "actively_heating": { "name": "Spa en Chauffage" }
+    },
     "button": {
       "filter_last_change": { "name": "Réinitialiser Les Jours Depuis Le Filtre"},
       "chlorine_last_add": { "name": "Réinitialiser Les Jours Depuis Le Chlore" }
@@ -34,11 +39,11 @@
       "thermostat": { "name": "Thermostat" }
     },
     "switch": {
-      "power_state": { "name": "Alimentation du spa" },
-      "filter_state": { "name": "Filtration" },
-      "heater_state": { "name": "Chauffage" },
-      "hydrojet_state": { "name": "Hydrojet" },
-      "wave_state": { 
+      "power_state": { "name": "Alimentation du Spa" },
+      "filter_state": { "name": "Filtre du Spa" },
+      "heater_state": { "name": "Chauffage du Spa" },
+      "hydrojet_state": { "name": "Jets du Spa" },
+      "wave_state": {
         "name": "Bulles / Vague",
         "state_attributes": { "bubble_level": { "name": "Niveau Bulles" }, "wave_state_value": { "name": "Valeur Wave State" } }
       }
@@ -47,7 +52,14 @@
       "temperature_setting": { "name": "Température cible" }
     },
     "select": {
-      "bubble_mode": { "name": "Bulles", "state": { "Off":"Désactivé" } }
+      "bubble_mode": {
+        "name": "Bulles du Spa",
+        "state": {
+          "off": "DÉSACTIVÉ",
+          "medium": "MOYEN",
+          "max": "MAXIMUM"
+        }
+      }
     },
     "sensor": {
       "filter_last_change": { "name": "Jours Depuis le Filtre" },

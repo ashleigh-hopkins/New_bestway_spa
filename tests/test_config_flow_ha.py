@@ -1,10 +1,9 @@
 """Test config flow with Home Assistant fixtures."""
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from homeassistant import config_entries
+from unittest.mock import patch, AsyncMock
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.new_bestway_spa.const import DOMAIN
 from custom_components.new_bestway_spa.config_flow import ConfigFlow
 
 
@@ -17,9 +16,7 @@ async def test_qr_code_invalid_format(hass):
     flow.hass = hass
 
     # Submit invalid QR code
-    result = await flow.async_step_qr_code({
-        "qr_code": "INVALID_CODE"
-    })
+    result = await flow.async_step_qr_code({"qr_code": "INVALID_CODE"})
 
     # Should show form again with error
     assert result["type"] == FlowResultType.FORM
@@ -36,11 +33,15 @@ async def test_device_selection(hass, mock_api):
     flow._token = "test_token_123"
 
     # Mock HA session helper and API
-    with patch("custom_components.new_bestway_spa.config_flow.async_get_clientsession") as mock_session_func:
+    with patch(
+        "custom_components.new_bestway_spa.config_flow.async_get_clientsession"
+    ) as mock_session_func:
         mock_session = AsyncMock()
         mock_session_func.return_value = mock_session
 
-        with patch("custom_components.new_bestway_spa.config_flow.BestwaySpaAPI") as mock_api_class:
+        with patch(
+            "custom_components.new_bestway_spa.config_flow.BestwaySpaAPI"
+        ) as mock_api_class:
             mock_api_class.return_value = mock_api
 
             # Show device picker
@@ -62,17 +63,21 @@ async def test_device_selection_creates_entry(hass, mock_api):
     flow._token = "test_token_123"
 
     # Mock HA session helper and API
-    with patch("custom_components.new_bestway_spa.config_flow.async_get_clientsession") as mock_session_func:
+    with patch(
+        "custom_components.new_bestway_spa.config_flow.async_get_clientsession"
+    ) as mock_session_func:
         mock_session = AsyncMock()
         mock_session_func.return_value = mock_session
 
-        with patch("custom_components.new_bestway_spa.config_flow.BestwaySpaAPI") as mock_api_class:
+        with patch(
+            "custom_components.new_bestway_spa.config_flow.BestwaySpaAPI"
+        ) as mock_api_class:
             mock_api_class.return_value = mock_api
 
             # Select device
-            result = await flow.async_step_select_device({
-                "device_id": "test_device_123abc"
-            })
+            result = await flow.async_step_select_device(
+                {"device_id": "test_device_123abc"}
+            )
 
             # Should create entry
             assert result["type"] == FlowResultType.CREATE_ENTRY
