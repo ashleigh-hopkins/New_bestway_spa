@@ -432,9 +432,10 @@ class BestwaySpaAPI:
         _LOGGER.info("Binding device with QR code: %s...", qr_code[:25])
 
         # Prepare request
+        # CRITICAL: grant_device API only accepts "android", not "fcm"
         payload = {
             "vercode": qr_code,  # Send full QR code including prefix
-            "push_type": self.push_type
+            "push_type": "android"  # Must be "android" for grant_device (API requirement)
         }
 
         _LOGGER.debug("Grant device payload: %s", payload)
