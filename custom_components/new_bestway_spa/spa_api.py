@@ -44,8 +44,10 @@ async def authenticate(session, config):
 
     payload = {
         "app_id": APPID,
+        "brand": "",  # CRITICAL: Required by API (discovered via APK decompilation)
         "lan_code": "en",
         "location": config.get("location", "GB"),
+        "marketing_notification": 0,  # CRITICAL: Required by API (discovered via APK decompilation)
         "push_type": push_type,
         "timezone": "GMT",
         "visitor_id": config["visitor_id"],
@@ -54,6 +56,8 @@ async def authenticate(session, config):
 
     if push_type == "fcm":
         payload["client_id"] = config["client_id"]
+    elif push_type == "android":
+        payload["client_id"] = config.get("client_id", "")
 
     nonce, ts, sign = generate_auth()
     headers = {
